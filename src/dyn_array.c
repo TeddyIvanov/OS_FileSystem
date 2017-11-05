@@ -1,4 +1,4 @@
-#include <dyn_array.h>
+#include "dyn_array.h"
 
 // Flag values
 // SHRUNK to indicate shrink_to_fit was called and size needs to be corrected
