@@ -6,6 +6,11 @@
 #include <dyn_array.h>
 
 typedef struct F17FS F17FS_t;
+typedef struct fileDescriptor fileDescriptor_t;
+typedef struct inode inode_t;
+typedef struct dir_files dir_files_t;
+typedef struct directory directory_t;
+typedef struct superRoot superRoot_t;
 
 typedef enum { FS_SEEK_SET, FS_SEEK_CUR, FS_SEEK_END } seek_t;
 
