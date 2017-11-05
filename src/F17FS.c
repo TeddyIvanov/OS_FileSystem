@@ -164,6 +164,7 @@ int fs_unmount(F17FS_t *fs){
 /// \param path Absolute path to file to create
 /// \param type Type of file to create (regular/directory)
 /// \return 0 on success, < 0 on failure
+/*
 int fs_create(F17FS_t *fs, const char *path, file_t type) {
 
     //Error check file path for Null.
@@ -287,3 +288,4 @@ int fs_move(F17FS_t *fs, const char *src, const char *dst){
     dst = NULL;
     return -1;
 }
+*/
