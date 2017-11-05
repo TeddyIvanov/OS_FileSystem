@@ -1,4 +1,4 @@
-#include "bitmap.h"
+#include <bitmap.h>
 #include <string.h>
 
 // Just the one for now. Indicates we're an overlay and should not free
