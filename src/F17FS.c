@@ -29,13 +29,8 @@ struct inode{ //64 Bytes total
     uint16_t doubleIndirectBlock; //2 Bytes
 };
 
-struct dir_files{ //65 Bytes total
-    char fileName[64]; //64 bytes
-    uint8_t inodeNumber; //1 bytes
-};
-
 struct directory{ //455 Bytes total
-    dir_files_t entries[7]; //7*65 bytes
+    file_record_t entries[7]; //7*65 bytes
     char metadata[57];
 };
 
@@ -173,6 +168,13 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     if(fs == NULL || path == NULL || strcmp(path, "") == 0 || type == FS_DIRECTORY){
       return -1;
     }
+    //Traverse directory structure
+    //make sure directory path is correct as we go
+    //make sure there is room for the file once we get to the destination
+    //Make sure the inode isn't in use.
+    //Needs to be free datablocks in the block store.
+    //Make sure to handle long file names.
+    //Create the file.
     return 0;
 }
 
@@ -186,6 +188,14 @@ int fs_open(F17FS_t *fs, const char *path) {
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return -1;
     }
+    //Traverse directory structure
+    //make sure directory path is correct as we go
+    //make sure the file exists in at the destination
+    //Make sure the inodenumbers match in use.
+    //Check to see if there is a file descriptor for you to use.
+    //Make sure the data block isn't empty.
+    //Make sure to handle long file names.
+    //Open the file.
     return 0;
 }
 
@@ -197,6 +207,9 @@ int fs_close(F17FS_t *fs, int fd){
     if(fs == NULL || fd <0){
         return -1;
     }
+    //Get into the bitmap for the fileDescriptors
+    //Make the fileDescriptor was in use.
+    //Clean up the fileDescriptor.
     return 0;
 }
 ///
@@ -210,6 +223,10 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return NULL;
     }
+    //Traverse directory structure
+    //make sure directory path is correct as we go
+    //make sure it is a directory
+    //Return the array with the directory information.
     return NULL;
 }
 
