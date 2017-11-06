@@ -44,6 +44,7 @@ struct superRoot{
     size_t freeBlocks;
     size_t totalBlocks;
     size_t blockSize;
+    char metadata[512];
 };
 
 struct F17FS{
