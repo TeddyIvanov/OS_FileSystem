@@ -36,6 +36,7 @@ struct dir_files{ //65 Bytes total
 
 struct directory{ //455 Bytes total
     dir_files_t entries[7]; //7*65 bytes
+    char metadata[57];
 };
 
 struct superRoot{
