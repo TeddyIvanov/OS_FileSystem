@@ -22,6 +22,7 @@ typedef enum { FS_REGULAR, FS_DIRECTORY } file_t;
 typedef struct {
     // You can add more if you want
     // vvv just don't remove or rename these vvv
+    uint8_t inodeNumber;
     char name[FS_FNAME_MAX];
     file_t type;
 } file_record_t;
@@ -141,5 +142,13 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path);
 /// \return 0 on success, < 0 on error
 ///
 int fs_move(F17FS_t *fs, const char *src, const char *dst);
+
+//HelperFunctions
+void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file);
+int checkBlockInDirectory(directory_t* directory, file_record_t* file);
+void getInodeFromDirectory(F17FS_t* fs,directory_t* parentDirectory, int index, inode_t* inode);
+void getInodeFromTable(F17FS_t* fs, int index, inode_t* inode);
+void writeInodeIntoTable(F17FS_t* fs, size_t index, inode_t* inode);
+int indexOfNameInDirectoryEntries(directory_t directory, char* fileName);
 
 #endif

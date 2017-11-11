@@ -29,7 +29,7 @@ struct inode{ //64 Bytes total
     uint16_t doubleIndirectBlock; //2 Bytes
 };
 
-struct directory{ //455 Bytes total
+struct directory{ //512 Bytes total
     file_record_t entries[7]; //7*65 bytes
     char metadata[57];
 };
@@ -106,9 +106,6 @@ F17FS_t *fs_format(const char *path){
     directory_t* directory = calloc(1, sizeof(directory_t));
     block_store_write(blockStore, blockId, directory);
 
-    //Writes the blockStore to disc
-    block_store_serialize(blockStore, path);
-
     //Clean up my allocations
     block_store_destroy(blockStore);
     bitmap_destroy(root->bitmap);
@@ -165,16 +162,95 @@ int fs_unmount(F17FS_t *fs){
 int fs_create(F17FS_t *fs, const char *path, file_t type) {
 
     //Error check file path for Null.
-    if(fs == NULL || path == NULL || strcmp(path, "") == 0 || type == FS_DIRECTORY){
+    if(fs == NULL || path == NULL || strcmp(path, "") == 0 || (type != FS_REGULAR && type != FS_DIRECTORY)) {
       return -1;
     }
+
+    inode_t* inodeForParent = calloc(1, sizeof(inode_t));
+    directory_t* parentDirectory = calloc(1, sizeof(directory_t));
+    file_record_t* file = calloc(1, sizeof(file_record_t));
     //Traverse directory structure
-    //make sure directory path is correct as we go
-    //make sure there is room for the file once we get to the destination
-    //Make sure the inode isn't in use.
-    //Needs to be free datablocks in the block store.
-    //Make sure to handle long file names.
-    //Create the file.
+    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+
+    if(file == NULL || parentDirectory == NULL)
+    {
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    int validSpaceToCreate = checkBlockInDirectory(parentDirectory, file);
+    if (validSpaceToCreate < 0){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Getting my root for checking Inodes
+    superRoot_t* root = calloc(1, sizeof(superRoot_t));
+    block_store_read(fs->blockStore, 0, root);
+    size_t inodeNumberInInodeTable = bitmap_ffz(root->bitmap);
+    if(inodeNumberInInodeTable == SIZE_MAX){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        free(root);
+        return -1;
+    }
+    inode_t* inodeForDirectoryOrFile = calloc(1, sizeof(inode_t));
+    getInodeFromTable(fs,inodeNumberInInodeTable, inodeForDirectoryOrFile);
+    if(type == FS_DIRECTORY){
+        size_t freeDataBlockId = block_store_allocate(fs->blockStore);
+        if(freeDataBlockId == SIZE_MAX){
+            free(inodeForParent);
+            free(parentDirectory);
+            free(file);
+            free(root);
+            free(inodeForDirectoryOrFile);
+            return -1;
+        }
+        directory_t* requestedNewDirectory = calloc(1, sizeof(directory_t));
+        inodeForDirectoryOrFile[0].fileSize = sizeof(directory_t);
+        inodeForDirectoryOrFile[0].fileMode = 1777; //Permissions
+        inodeForDirectoryOrFile[0].accessTime = time(0);
+        inodeForDirectoryOrFile[0].changeTime = time(0);
+        inodeForDirectoryOrFile[0].modifcationTime = time(0);
+        inodeForDirectoryOrFile[0].directBlocks[0] = (uint8_t)freeDataBlockId;
+        //Writing directory into the directBlock.
+        block_store_write(fs->blockStore, freeDataBlockId, requestedNewDirectory);
+        //Writing the Inode back into the Inode Table.
+        writeInodeIntoTable(fs,inodeNumberInInodeTable, inodeForDirectoryOrFile);
+        //Updating the parentDirectory and writing it to back to disc.
+        parentDirectory->entries[validSpaceToCreate].inodeNumber = (uint8_t)inodeNumberInInodeTable;
+        strcpy(parentDirectory->entries[validSpaceToCreate].name, file->name);
+        parentDirectory->entries[validSpaceToCreate].type = FS_DIRECTORY;
+        block_store_write(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+        free(requestedNewDirectory);
+    }else{
+        inodeForDirectoryOrFile[0].fileSize = 0;
+        inodeForDirectoryOrFile[0].fileMode = 777; //Permissions
+        inodeForDirectoryOrFile[0].accessTime = time(0);
+        inodeForDirectoryOrFile[0].changeTime = time(0);
+        inodeForDirectoryOrFile[0].modifcationTime = time(0);
+        //Writing the Inode back into the Inode Table.
+        writeInodeIntoTable(fs,inodeNumberInInodeTable, inodeForDirectoryOrFile);
+        //Updating the parentDirectory and writing it to back to disc.
+        parentDirectory->entries[validSpaceToCreate].inodeNumber = (uint8_t)inodeNumberInInodeTable;
+        strcpy(parentDirectory->entries[validSpaceToCreate].name, file->name);
+        parentDirectory->entries[validSpaceToCreate].type = FS_REGULAR;
+        block_store_write(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+    }
+    //Updating the root after creating a file or directory.
+    bitmap_set(root->bitmap, inodeNumberInInodeTable);
+    block_store_write(fs->blockStore, 0, root);
+
+    //CleanUp!
+    free(inodeForParent);
+    free(parentDirectory);
+    free(file);
+    free(root);
+    free(inodeForDirectoryOrFile);
+
     return 0;
 }
 
@@ -188,15 +264,51 @@ int fs_open(F17FS_t *fs, const char *path) {
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return -1;
     }
+    inode_t* inodeForParent = calloc(1, sizeof(inode_t));
+    directory_t* parentDirectory = calloc(1, sizeof(directory_t));
+    file_record_t* file = calloc(1, sizeof(file_record_t));
     //Traverse directory structure
-    //make sure directory path is correct as we go
-    //make sure the file exists in at the destination
-    //Make sure the inodenumbers match in use.
-    //Check to see if there is a file descriptor for you to use.
-    //Make sure the data block isn't empty.
-    //Make sure to handle long file names.
-    //Open the file.
-    return 0;
+    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    //Check to see if it was found.
+    if(file == NULL || parentDirectory == NULL)
+    {
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Check to see if its in the directory entries.
+    int fileLocation = indexOfNameInDirectoryEntries(*parentDirectory, file->name);
+    if(fileLocation < 0){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Check to see if there is enough fileDescriptors
+    size_t indexOfFileDescriptor = bitmap_ffz(fs->bitmap);
+    if(indexOfFileDescriptor == SIZE_MAX){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Check to see if its directory.
+    if(parentDirectory->entries[fileLocation].type == FS_DIRECTORY){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Updating Filedescriptor to being in use.
+    bitmap_set(fs->bitmap, indexOfFileDescriptor);
+    fs->fds[indexOfFileDescriptor].inodeNumber = parentDirectory->entries[fileLocation].inodeNumber;
+    fs->fds[indexOfFileDescriptor].filePosition = 0;
+    //Cleanup
+    free(inodeForParent);
+    free(parentDirectory);
+    free(file);
+    return (int)indexOfFileDescriptor;
 }
 
 /// Closes the given file descriptor
@@ -207,9 +319,14 @@ int fs_close(F17FS_t *fs, int fd){
     if(fs == NULL || fd <0){
         return -1;
     }
-    //Get into the bitmap for the fileDescriptors
-    //Make the fileDescriptor was in use.
-    //Clean up the fileDescriptor.
+    //Checking to is if it was actually in us.
+    if(!bitmap_test(fs->bitmap, fd)){
+        return -1;
+    }
+    //Resetting it.
+    bitmap_reset(fs->bitmap, fd);
+    fs->fds[fd].filePosition = 0;
+    fs->fds[fd].inodeNumber = '\0';
     return 0;
 }
 ///
@@ -223,11 +340,75 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return NULL;
     }
+    inode_t* inodeForParent = calloc(1, sizeof(inode_t));
+    directory_t* parentDirectory = calloc(1, sizeof(directory_t));
+    file_record_t* file = calloc(1, sizeof(file_record_t));
+    dyn_array_t* dynArray = dyn_array_create(7, sizeof(file_record_t), NULL);
     //Traverse directory structure
-    //make sure directory path is correct as we go
-    //make sure it is a directory
-    //Return the array with the directory information.
-    return NULL;
+    if(strlen(path) == 1 && path[0] == '/'){
+        //Getting root
+        inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
+        block_store_read(fs->blockStore, 1 , blockSizeOfInodes);
+        //Getting the first Inode.
+        inodeForParent = &blockSizeOfInodes[0];
+        //Getting the root directory from the dataBlocks of the first inode.
+        block_store_read(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+        int i;
+        for(i = 0; i<7; i++){
+            if(parentDirectory->entries[i].inodeNumber != '\0'){
+                dyn_array_push_front(dynArray, &parentDirectory->entries[i]);
+            }
+        }
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return dynArray;
+    }
+
+    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    //Check to see if it was found.
+    if(file == NULL || parentDirectory == NULL)
+    {
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        dyn_array_destroy(dynArray);
+        return NULL;
+    }
+
+    //Check to see if fileLocation exists.
+    int fileLocation = indexOfNameInDirectoryEntries(*parentDirectory, file->name);
+    if(fileLocation < 0){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        dyn_array_destroy(dynArray);
+        return NULL;
+    }
+    //Check if its a file and return.
+    if(parentDirectory->entries[fileLocation].type == FS_REGULAR){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        dyn_array_destroy(dynArray);
+        return NULL;
+    }
+    //Getting Inode and getting the parent directory.
+    getInodeFromTable(fs,parentDirectory->entries[fileLocation].inodeNumber, inodeForParent);
+    block_store_read(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+    //Looping for all directories and adding them to the dynamic array.
+    int i;
+    for(i = 0; i<7; i++){
+        if(parentDirectory->entries[i].inodeNumber != '\0'){
+            dyn_array_push_front(dynArray, &parentDirectory->entries[i]);
+        }
+    }
+    //CleanUp
+    free(inodeForParent);
+    free(parentDirectory);
+    free(file);
+
+    return dynArray;
 }
 
 /// Moves the R/W position of the given descriptor to the given location
@@ -305,4 +486,102 @@ int fs_move(F17FS_t *fs, const char *src, const char *dst){
         return -1;
     }
     return 0;
+}
+
+//HELPER FUNCTIONS!!!
+void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file){
+
+    if(path[0] != '/') {
+        free(parentDirectory);
+        free(file);
+        free(inode);
+        return;
+    }
+
+    size_t i;
+    //Used to keep track of current location in string.
+    int currentIndexOfFileName = 0;
+    //Need to Read blocksize of Inodes to get the first inode off.
+    inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
+    block_store_read(fs->blockStore, 1 , blockSizeOfInodes);
+    //Getting the first Inode.
+    inode = &blockSizeOfInodes[0];
+    //Getting the root directory from the dataBlocks of the first inode.
+    block_store_read(fs->blockStore, inode->directBlocks[0], parentDirectory);
+
+    for (i = 1; i < strlen(path); i++) {
+
+        if (path[i] == '/') {
+            //Appending null terminator.
+            file->name[currentIndexOfFileName] = '\0';
+                //Check if fileName exists already in blockStore.
+            int indexOfExistingDirectory = indexOfNameInDirectoryEntries(*parentDirectory, file->name);
+            if(indexOfExistingDirectory >= 0){
+
+                //Getting inode from directory.
+                getInodeFromDirectory(fs, parentDirectory, indexOfExistingDirectory, inode);
+
+                //Updating the parentDirectory with new inode
+                block_store_read(fs->blockStore, inode->directBlocks[0], parentDirectory);
+            }
+
+        } else if(currentIndexOfFileName > 63) {
+            free(parentDirectory);
+            free(file);
+            free(inode);
+            return;
+        } else {
+            file->name[currentIndexOfFileName] = path[i];
+            currentIndexOfFileName++;
+        }
+    }
+    //Success!
+}
+
+int checkBlockInDirectory(directory_t* directory, file_record_t* file) {
+    int i;
+    for (i = 0; i < 7; i++) {
+        if (directory->entries[i].inodeNumber == '\0') {
+            return i;
+        }
+        if (strcmp(directory->entries[i].name, file->name) != 0)
+        {
+            return -1;
+        }
+    }
+    return -1;
+}
+
+void getInodeFromDirectory(F17FS_t* fs,directory_t* parentDirectory, int index, inode_t* inode){
+    getInodeFromTable(fs, parentDirectory->entries[index].inodeNumber, inode);
+}
+
+void getInodeFromTable(F17FS_t* fs, int index, inode_t* inode) {
+    inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
+    size_t inodeBlocks = (size_t) (index/8)+1;
+    size_t inodeId = (size_t) (index) % 8;
+    block_store_read(fs->blockStore, inodeBlocks, blockSizeOfInodes);
+    memcpy(inode, &blockSizeOfInodes[inodeId], sizeof(inode_t));
+    free(blockSizeOfInodes);
+}
+
+void writeInodeIntoTable(F17FS_t* fs, size_t index, inode_t* inode) {
+    inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
+    size_t inodeBlocks = (size_t) (index/8)+1;
+    size_t inodeId = (size_t) (index) % 8;
+    block_store_read(fs->blockStore, inodeBlocks, blockSizeOfInodes);
+    memcpy(&blockSizeOfInodes[inodeId], inode, sizeof(inode_t));
+    block_store_write(fs->blockStore, inodeBlocks, blockSizeOfInodes);
+    free(blockSizeOfInodes);
+}
+
+int indexOfNameInDirectoryEntries(directory_t directory, char* fileName){
+    int i;
+    for(i = 0; i<7; i++)
+    {
+        if(strcmp(directory.entries[i].name, fileName) == 0) {
+            return i;
+        }
+    }
+    return -1;
 }
