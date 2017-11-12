@@ -175,9 +175,6 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
 
     if(file == NULL || parentDirectory == NULL)
     {
-        free(inodeForParent);
-        free(parentDirectory);
-        free(file);
         return -1;
     }
     int validSpaceToCreate = checkBlockInDirectory(parentDirectory, file);
@@ -274,9 +271,6 @@ int fs_open(F17FS_t *fs, const char *path) {
     //Check to see if it was found.
     if(file == NULL || parentDirectory == NULL)
     {
-        free(inodeForParent);
-        free(parentDirectory);
-        free(file);
         return -1;
     }
     //Check to see if its in the directory entries.
@@ -371,9 +365,6 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
     //Check to see if it was found.
     if(file == NULL || parentDirectory == NULL)
     {
-        free(inodeForParent);
-        free(parentDirectory);
-        free(file);
         dyn_array_destroy(dynArray);
         return NULL;
     }
