@@ -192,6 +192,7 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     root->bitmap = bitmap_overlay(256, root->freeInodeMap);
     size_t inodeNumberInInodeTable = bitmap_ffz(root->bitmap);
     if(inodeNumberInInodeTable == SIZE_MAX){
+        bitmap_destroy(root->bitmap);
         free(inodeForParent);
         free(parentDirectory);
         free(file);
@@ -203,6 +204,7 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     if(type == FS_DIRECTORY){
         size_t freeDataBlockId = block_store_allocate(fs->blockStore);
         if(freeDataBlockId == SIZE_MAX){
+            bitmap_destroy(root->bitmap);
             free(inodeForParent);
             free(parentDirectory);
             free(file);
