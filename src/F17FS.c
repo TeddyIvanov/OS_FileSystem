@@ -310,7 +310,7 @@ int fs_open(F17FS_t *fs, const char *path) {
     //Cleanup
     free(inodeForParent);
     free(parentDirectory);
-    //free(file);
+    free(file);
     return (int)indexOfFileDescriptor;
 }
 
@@ -319,7 +319,7 @@ int fs_open(F17FS_t *fs, const char *path) {
 /// \param fd The file to close
 /// \return 0 on success, < 0 on failure
 int fs_close(F17FS_t *fs, int fd){
-    if(fs == NULL || fd <0){
+    if(fs == NULL || fd <0 || fd > 255){
         return -1;
     }
     //Checking to is if it was actually in us.
