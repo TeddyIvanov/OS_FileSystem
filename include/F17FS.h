@@ -144,7 +144,7 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path);
 int fs_move(F17FS_t *fs, const char *src, const char *dst);
 
 //HelperFunctions
-void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file);
+int traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file);
 int checkBlockInDirectory(directory_t* directory, file_record_t* file);
 void getInodeFromDirectory(F17FS_t* fs,directory_t* parentDirectory, int index, inode_t* inode);
 void getInodeFromTable(F17FS_t* fs, int index, inode_t* inode);

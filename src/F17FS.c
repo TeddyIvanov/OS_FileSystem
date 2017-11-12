@@ -171,12 +171,14 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     directory_t* parentDirectory = calloc(1, sizeof(directory_t));
     file_record_t* file = calloc(1, sizeof(file_record_t));
     //Traverse directory structure
-    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
-
-    if(file == NULL || parentDirectory == NULL)
-    {
+    int succesfullyTraversed = traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    if(succesfullyTraversed < 0){
+        free(file);
+        free(parentDirectory);
+        free(inodeForParent);
         return -1;
     }
+
     int validSpaceToCreate = checkBlockInDirectory(parentDirectory, file);
     if (validSpaceToCreate < 0){
         free(inodeForParent);
@@ -267,10 +269,12 @@ int fs_open(F17FS_t *fs, const char *path) {
     directory_t* parentDirectory = calloc(1, sizeof(directory_t));
     file_record_t* file = calloc(1, sizeof(file_record_t));
     //Traverse directory structure
-    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    int succesfullyTraversed = traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
     //Check to see if it was found.
-    if(file == NULL || parentDirectory == NULL)
-    {
+    if(succesfullyTraversed < 0){
+        free(file);
+        free(parentDirectory);
+        free(inodeForParent);
         return -1;
     }
     //Check to see if its in the directory entries.
@@ -346,7 +350,8 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
         inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
         block_store_read(fs->blockStore, 1 , blockSizeOfInodes);
         //Getting the first Inode.
-        inodeForParent = &blockSizeOfInodes[0];
+        //inodeForParent = &blockSizeOfInodes[0];
+        memcpy(inodeForParent,&blockSizeOfInodes[0], sizeof(inode_t));
         //Getting the root directory from the dataBlocks of the first inode.
         block_store_read(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
         int i;
@@ -358,13 +363,16 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
         free(inodeForParent);
         free(parentDirectory);
         free(file);
+        free(blockSizeOfInodes);
         return dynArray;
     }
 
-    traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    int succesfullyTraversed = traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
     //Check to see if it was found.
-    if(file == NULL || parentDirectory == NULL)
-    {
+    if(succesfullyTraversed < 0){
+        free(file);
+        free(parentDirectory);
+        free(inodeForParent);
         dyn_array_destroy(dynArray);
         return NULL;
     }
@@ -482,15 +490,15 @@ int fs_move(F17FS_t *fs, const char *src, const char *dst){
 }
 
 //HELPER FUNCTIONS!!!
-void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file){
+int traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirectory ,inode_t* inode, file_record_t* file){
 
     if(path[0] != '/') {
-        free(parentDirectory);
-        free(file);
-        free(inode);
-        return;
+        return -1;
     }
 
+    if(strlen(path) == 1){
+        return -1;
+    }
     size_t i;
     //Used to keep track of current location in string.
     int currentIndexOfFileName = 0;
@@ -498,7 +506,8 @@ void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirector
     inode_t* blockSizeOfInodes = calloc(8, sizeof(inode_t));
     block_store_read(fs->blockStore, 1 , blockSizeOfInodes);
     //Getting the first Inode.
-    inode = &blockSizeOfInodes[0];
+    memcpy(inode,&blockSizeOfInodes[0], sizeof(inode_t));
+    //inode = &blockSizeOfInodes[0];
     //Getting the root directory from the dataBlocks of the first inode.
     block_store_read(fs->blockStore, inode->directBlocks[0], parentDirectory);
 
@@ -513,27 +522,33 @@ void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirector
 
                 //Getting inode from directory.
                 getInodeFromDirectory(fs, parentDirectory, indexOfExistingDirectory, inode);
-
+                //Checking if parentDirectory is a file.
+                if(inode->fileMode < 1000){
+                    free(blockSizeOfInodes);
+                    return -1;
+                }
                 //Updating the parentDirectory with new inode
                 block_store_read(fs->blockStore, inode->directBlocks[0], parentDirectory);
+                //Resetting the string.
+                currentIndexOfFileName = 0;
+                memset(file->name, '\0',64);
             }else{
-                free(parentDirectory);
-                free(file);
-                free(inode);
-                return;
+                //Checking if fileName is a directory.
+                free(blockSizeOfInodes);
+                return -1;
             }
 
-        } else if(currentIndexOfFileName > 63) {
-            free(parentDirectory);
-            free(file);
-            free(inode);
-            return;
+        } else if(currentIndexOfFileName >= 63) {
+            //Checking if fileName is too long.
+            free(blockSizeOfInodes);
+            return -1;
         } else {
             file->name[currentIndexOfFileName] = path[i];
             currentIndexOfFileName++;
         }
     }
-    //Success!
+    free(blockSizeOfInodes);
+    return 0;
 }
 
 int checkBlockInDirectory(directory_t* directory, file_record_t* file) {
@@ -542,7 +557,7 @@ int checkBlockInDirectory(directory_t* directory, file_record_t* file) {
         if (directory->entries[i].inodeNumber == '\0') {
             return i;
         }
-        if (strcmp(directory->entries[i].name, file->name) != 0)
+        if (strcmp(directory->entries[i].name, file->name) == 0)
         {
             return -1;
         }
