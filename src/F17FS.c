@@ -246,6 +246,7 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     block_store_write(fs->blockStore, 0, root);
 
     //CleanUp!
+    bitmap_destroy(root->bitmap);
     free(inodeForParent);
     free(parentDirectory);
     free(file);
