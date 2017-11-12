@@ -310,7 +310,7 @@ int fs_open(F17FS_t *fs, const char *path) {
     //Cleanup
     free(inodeForParent);
     free(parentDirectory);
-    free(file);
+    //free(file);
     return (int)indexOfFileDescriptor;
 }
 
