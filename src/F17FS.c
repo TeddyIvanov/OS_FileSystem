@@ -323,11 +323,11 @@ int fs_close(F17FS_t *fs, int fd){
         return -1;
     }
     //Checking to is if it was actually in us.
-    if(!bitmap_test(fs->bitmap, fd)){
+    if(!bitmap_test(fs->bitmap, (size_t)fd)){
         return -1;
     }
     //Resetting it.
-    bitmap_reset(fs->bitmap, fd);
+    bitmap_reset(fs->bitmap, (size_t)fd);
     fs->fds[fd].filePosition = 0;
     fs->fds[fd].inodeNumber = '\0';
     return 0;
