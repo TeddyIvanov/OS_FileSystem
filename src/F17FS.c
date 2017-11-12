@@ -40,6 +40,7 @@ struct superRoot{
     size_t freeBlocks;
     size_t totalBlocks;
     size_t blockSize;
+    uint8_t freeInodeMap[256];
     char metadata[512];
 };
 
@@ -67,7 +68,7 @@ F17FS_t *fs_format(const char *path){
     //Creating the superRoot that will be placed in the first block in the blockstore.
     superRoot_t* root = calloc(1, sizeof(superRoot_t));
     //Bitmap to keep track of the 32 inodes.
-    root->bitmap = bitmap_create(BLOCK_SIZE_BYTES/2);
+    root->bitmap = bitmap_overlay(256, root->freeInodeMap);
     //Marking the 0th block in the blockStore in use because the root is in there.
     bitmap_set(root->bitmap, 0);
     root->blockSize = BLOCK_SIZE_BYTES;
@@ -189,6 +190,7 @@ int fs_create(F17FS_t *fs, const char *path, file_t type) {
     //Getting my root for checking Inodes
     superRoot_t* root = calloc(1, sizeof(superRoot_t));
     block_store_read(fs->blockStore, 0, root);
+    root->bitmap = bitmap_overlay(256, root->freeInodeMap);
     size_t inodeNumberInInodeTable = bitmap_ffz(root->bitmap);
     if(inodeNumberInInodeTable == SIZE_MAX){
         free(inodeForParent);
@@ -523,6 +525,11 @@ void traverseFilePath(const char *path, F17FS_t *fs, directory_t* parentDirector
 
                 //Updating the parentDirectory with new inode
                 block_store_read(fs->blockStore, inode->directBlocks[0], parentDirectory);
+            }else{
+                free(parentDirectory);
+                free(file);
+                free(inode);
+                return;
             }
 
         } else if(currentIndexOfFileName > 63) {
