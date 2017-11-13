@@ -427,6 +427,12 @@ off_t fs_seek(F17FS_t *fs, int fd, off_t offset, seek_t whence){
     if(fs == NULL || fd < 0 || offset <= 0 || whence == FS_SEEK_END){
         return -1;
     }
+    //Check the type of offSet Enum FS_SEEK_SET, FS_SEEK_CUR, FS_SEEK_END
+    //If FS_SEEK_END, jump to the end and subtrack from it.
+    //IF FS_SEEK_CUR, add or subtract from location.
+    //If FS_SEEK_SET, add from beginning file.
+    //Update the file descriptor and update the bitmap.
+    //Clean up.
     return -1;
 }
 
@@ -443,6 +449,13 @@ ssize_t fs_read(F17FS_t *fs, int fd, void *dst, size_t nbyte){
     if(fs == NULL || fd < 0 || dst == NULL ||  nbyte <= 0){
         return -1;
     }
+    //Check if file exists so that it can write too it.
+    //Check to see its not a directory
+    //Open up fileDescriptor since it are reading to it.
+    //If buffer greater than the EOF, error out, reading past buffer.
+    //Grab the corresponding datablocks to read, check if reading too much.
+    //Clear out the descriptor after reading from file.
+    //Clean up after.
     return -1;
 }
 
@@ -461,6 +474,15 @@ ssize_t fs_write(F17FS_t *fs, int fd, const void *src, size_t nbyte){
     if(fs == NULL || fd < 0 || src == NULL || nbyte <= 0){
         return -1;
     }
+    //Check if file exists so that it can write too it.
+    //Check to see its not a directory
+    //Open up fileDescriptor since it are writing to it.
+    //If buffer greater than the EOF then extend the file,
+    //Check to see if we are not overflowing out of Blockstore.
+    //Get more datablocks for writing and update the blockstore.
+    //Update the bitmap and blockstore that we have made changes to the datablocks.
+    //Clear out the descriptor after writing to the file.
+    //Clean up after.
     return -1;
 }
 
@@ -475,6 +497,16 @@ int fs_remove(F17FS_t *fs, const char *path){
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return -1;
     }
+    //Traverse down to see if the file exists,
+    //If its a directory and there are no file, then remvoe directory.
+    //Get the inodeNumber that corresponds to the specific file.
+    //Check if any fileDescriptors exist with correspodining file.
+    //Check all file descriptors with that inodeNumber.
+    //Set them back.
+    //Clear out the correspoinding datablock.
+    //Update the bitmap with file descriptors.
+    //Store back into the blockStore.
+
     return 0;
 }
 
