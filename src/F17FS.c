@@ -424,17 +424,50 @@ dyn_array_t *fs_get_dir(F17FS_t *fs, const char *path){
 /// \param whence Position from which offset is applied
 /// \return offset from BOF, < 0 on error
 off_t fs_seek(F17FS_t *fs, int fd, off_t offset, seek_t whence){
-    if(fs == NULL || fd < 0 || offset <= 0 || whence == FS_SEEK_END){
+
+    if(fs == NULL){
         return -1;
     }
-    //Check the type of offSet Enum FS_SEEK_SET, FS_SEEK_CUR, FS_SEEK_END
-    //If FS_SEEK_END, jump to the end and subtrack from it.
-    //IF FS_SEEK_CUR, add or subtract from location.
-    //If FS_SEEK_SET, add from beginning file.
-    //Update the file descriptor and update the bitmap.
-    //Clean up.
-    return -1;
+
+    if(fd < 0 || fd > 255){
+        return -1;
+    }
+    //See if its in use.
+    if(!bitmap_test(fs->bitmap, fd)){
+        return -1;
+    }
+    uint8_t inodeLocation = fs->fds[fd].inodeNumber;
+    inode_t* fileInode = calloc(1, sizeof(inode_t));
+    getInodeFromTable(fs, inodeLocation, fileInode);
+    int fileSize = fileInode->fileSize;
+
+    free(fileInode);
+    int currentFilePosition =0;
+    off_t seekLocation = 0;
+    switch (whence) {
+        case FS_SEEK_SET:
+            seekLocation = calculateOffset(fileSize, offset);
+            fs->fds[fd].filePosition = seekLocation;
+            return seekLocation;
+
+        case FS_SEEK_CUR:
+            currentFilePosition = fs->fds[fd].filePosition;
+            seekLocation = currentFilePosition + offset;
+            seekLocation = calculateOffset(fileSize, seekLocation);
+            fs->fds[fd].filePosition = seekLocation;
+            return seekLocation;
+
+        case FS_SEEK_END:
+            seekLocation = fileSize + offset;
+            seekLocation = calculateOffset(fileSize, seekLocation);
+            fs->fds[fd].filePosition = seekLocation;
+            return seekLocation;
+
+        default:
+            return -1;
+    }
 }
+
 
 /// Reads data from the file linked to the given descriptor
 ///   Reading past EOF returns data up to EOF
@@ -446,17 +479,46 @@ off_t fs_seek(F17FS_t *fs, int fd, off_t offset, seek_t whence){
 /// \return number of bytes read (< nbyte IFF read passes EOF), < 0 on error
 ssize_t fs_read(F17FS_t *fs, int fd, void *dst, size_t nbyte){
 
-    if(fs == NULL || fd < 0 || dst == NULL ||  nbyte <= 0){
+    if(fs == NULL || dst == NULL) {
         return -1;
     }
-    //Check if file exists so that it can write too it.
-    //Check to see its not a directory
-    //Open up fileDescriptor since it are reading to it.
-    //If buffer greater than the EOF, error out, reading past buffer.
-    //Grab the corresponding datablocks to read, check if reading too much.
-    //Clear out the descriptor after reading from file.
-    //Clean up after.
-    return -1;
+    if(fd < 0 || fd > 255){
+        return -1;
+    }
+    if(nbyte == 0){
+        return 0;
+    }
+    if(!bitmap_test(fs->bitmap, fd)){
+        return -1;
+    }
+
+    uint8_t inodeLocation = fs->fds[fd].inodeNumber;
+    inode_t* fileInode = calloc(1, sizeof(inode_t));
+    getInodeFromTable(fs,inodeLocation, fileInode);
+    ssize_t totalBytesRead = 0;
+    size_t requestedReadAmount = nbyte;
+
+    if((int)(requestedReadAmount+fs->fds[fd].filePosition) > fileInode->fileSize){
+        requestedReadAmount = fileInode->fileSize - fs->fds[fd].filePosition;
+    }
+
+    int currentFilePosition = fs->fds[fd].filePosition;
+    int fileBlockNumber = currentFilePosition/BLOCK_SIZE_BYTES;
+    //Where you are in fileBlock.
+    int byteAtPositionInFileBlock = currentFilePosition % BLOCK_SIZE_BYTES;
+
+    if(fileBlockNumber < 6){
+        totalBytesRead = readDirectBlocks(fs->blockStore, fileBlockNumber, byteAtPositionInFileBlock, fileInode, dst, requestedReadAmount);
+    }else if (fileBlockNumber >= 6 && fileBlockNumber <= 261){
+        totalBytesRead = readIndirectBlock(fs->blockStore, fileBlockNumber, byteAtPositionInFileBlock, fileInode, dst, requestedReadAmount, fileInode->indirectBlock);
+    }else {
+        totalBytesRead = readDoubleIndirectBlocks(fs->blockStore, fileBlockNumber, byteAtPositionInFileBlock, fileInode, dst, requestedReadAmount);
+    }
+
+    fs->fds[fd].filePosition += totalBytesRead;
+    free(fileInode);
+
+    return totalBytesRead;
 }
 
 ///
@@ -471,20 +533,273 @@ ssize_t fs_read(F17FS_t *fs, int fd, void *dst, size_t nbyte){
 /// \return number of bytes written (< nbyte IFF out of space), < 0 on error
 ///
 ssize_t fs_write(F17FS_t *fs, int fd, const void *src, size_t nbyte){
-    if(fs == NULL || fd < 0 || src == NULL || nbyte <= 0){
+    if(fs == NULL || src == NULL) {
         return -1;
     }
-    //Check if file exists so that it can write too it.
-    //Check to see its not a directory
-    //Open up fileDescriptor since it are writing to it.
-    //If buffer greater than the EOF then extend the file,
-    //Check to see if we are not overflowing out of Blockstore.
-    //Get more datablocks for writing and update the blockstore.
-    //Update the bitmap and blockstore that we have made changes to the datablocks.
-    //Clear out the descriptor after writing to the file.
-    //Clean up after.
-    return -1;
+    if(fd < 0 || fd > 255){
+        return -1;
+    }
+    if(nbyte == 0){
+        return 0;
+    }
+    if(!bitmap_test(fs->bitmap, fd)){
+        return -1;
+    }
+    uint8_t inodeLocation = fs->fds[fd].inodeNumber;
+    inode_t* fileInode = calloc(1, sizeof(inode_t));
+    getInodeFromTable(fs,inodeLocation, fileInode);
+    ssize_t totalBytesWritten = 0;
+    size_t physicalBlock = 0;
+
+    int currentFilePosition = fs->fds[fd].filePosition;
+    int fileBlockNumber = currentFilePosition/BLOCK_SIZE_BYTES;
+    //Where you are in fileBlock.
+    int byteAtPositionInFileBlock = currentFilePosition % BLOCK_SIZE_BYTES;
+
+
+    if(fileBlockNumber < 6){
+        totalBytesWritten = handleDirectBlocks(fs->blockStore, fileBlockNumber, byteAtPositionInFileBlock, fileInode, src, nbyte);
+    }else if (fileBlockNumber >= 6 && fileBlockNumber < 261) {
+
+        uint16_t readIndirectData[256];
+        physicalBlock = fileInode->indirectBlock;
+
+        if (physicalBlock == 0) {
+            physicalBlock = block_store_allocate(fs->blockStore);
+            //Making sure I don't run out of space.
+            if(physicalBlock == SIZE_MAX){
+                return 0;
+            }
+            fileInode->indirectBlock = (uint16_t) physicalBlock;
+            memset(readIndirectData, 0, 512);
+            block_store_write(fs->blockStore, physicalBlock, readIndirectData);
+        }
+        totalBytesWritten = handleIndirectBlock(fs->blockStore, fileBlockNumber, byteAtPositionInFileBlock, fileInode, src, nbyte, physicalBlock);
+    }else{
+        totalBytesWritten = handleDoubleIndirectBlocks(fs->blockStore,fileBlockNumber,byteAtPositionInFileBlock, fileInode, src, nbyte);
+    }
+
+    fs->fds[fd].filePosition += totalBytesWritten;
+    fileInode->fileSize += totalBytesWritten;
+    writeInodeIntoTable(fs, fs->fds[fd].inodeNumber, fileInode);
+    free(fileInode);
+
+    return totalBytesWritten;
 }
+
+ssize_t readDirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, char* data, size_t nbytes){
+    size_t physicalBlock = inode->directBlocks[fileBlockNumber];
+    if(physicalBlock == 0){
+        return 0;
+    }
+    size_t bytesToReadFromLocation = (size_t)512 - byteAtPositionInFileBlock;
+    if(bytesToReadFromLocation > nbytes){
+        bytesToReadFromLocation = nbytes;
+    }
+    char readDataBlock[512];
+    block_store_read(blockStore, physicalBlock, readDataBlock);
+    memcpy(data, (readDataBlock + byteAtPositionInFileBlock), bytesToReadFromLocation);
+    nbytes -= bytesToReadFromLocation;
+    if(nbytes > 0 && fileBlockNumber + 1 < 6){
+        return bytesToReadFromLocation + readDirectBlocks(blockStore, fileBlockNumber + 1, 0, inode, (data+bytesToReadFromLocation), nbytes);
+    } else if (nbytes > 0 && fileBlockNumber + 1 >= 6){
+        return bytesToReadFromLocation + readIndirectBlock(blockStore, fileBlockNumber + 1, 0, inode, (data + bytesToReadFromLocation), nbytes, inode->indirectBlock);
+    }else {
+        return bytesToReadFromLocation;
+    }
+}
+//Direct Block
+ssize_t handleDirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes){
+
+    size_t physicalBlock = 0;
+    bool needBlock = false;
+    if(inode->directBlocks[fileBlockNumber] == 0){
+        physicalBlock = block_store_allocate(blockStore);
+        if(physicalBlock == SIZE_MAX){
+            return 0;
+        }
+        inode->directBlocks[fileBlockNumber] = (uint16_t) physicalBlock;
+        needBlock = true;
+    }else{
+        physicalBlock = inode->directBlocks[fileBlockNumber];
+    }
+
+    size_t bytesToWriteFromLocation = (size_t)512 - byteAtPositionInFileBlock;
+    if(bytesToWriteFromLocation > nbytes){
+        bytesToWriteFromLocation = nbytes;
+    }
+
+    char readDataBlock[512];
+    if(needBlock){
+        memset(readDataBlock, '\0', 512);
+        memcpy(readDataBlock, data, 512);
+    }else{
+        block_store_read(blockStore, physicalBlock, readDataBlock);
+        memcpy((readDataBlock + byteAtPositionInFileBlock), data, bytesToWriteFromLocation);
+    }
+
+    block_store_write(blockStore, physicalBlock, readDataBlock);
+    nbytes -= bytesToWriteFromLocation;
+
+    if(nbytes > 0 && fileBlockNumber + 1 < 6){
+        return bytesToWriteFromLocation + handleDirectBlocks(blockStore, fileBlockNumber + 1 , 0 , inode , (data + bytesToWriteFromLocation) ,nbytes);
+    }else if(nbytes > 0 && fileBlockNumber + 1 >= 6){
+
+        uint16_t readIndirectData[256];
+        physicalBlock = inode->indirectBlock;
+        if (physicalBlock == 0) {
+            physicalBlock = block_store_allocate(blockStore);
+            //Making sure I don't run out of space.
+            if(physicalBlock == SIZE_MAX){
+                return 0;
+            }
+            inode->indirectBlock = (uint16_t) physicalBlock;
+            memset(readIndirectData, 0, 512);
+            block_store_write(blockStore, physicalBlock, readIndirectData);
+        }
+        return bytesToWriteFromLocation + handleIndirectBlock(blockStore, fileBlockNumber + 1 , 0 , inode, (data + bytesToWriteFromLocation) ,nbytes, physicalBlock);
+    }else{
+        return bytesToWriteFromLocation;
+    }
+
+}
+
+//Normal Indirect case
+ssize_t readIndirectBlock(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode,  char* data, size_t nbytes, size_t blockStoreBlockId){
+    int indirectBlockLocation = (fileBlockNumber - 6) % 256;
+    ssize_t totalBytesRead = 0;
+    uint16_t readIndirectData[256];
+    if(blockStoreBlockId == 0){
+        return 0;
+    }
+    block_store_read(blockStore, blockStoreBlockId, readIndirectData);
+    while(nbytes > 0 && indirectBlockLocation < 256) {
+
+        char tempBlockdata[512];
+        if(readIndirectData[indirectBlockLocation] == 0){
+            return totalBytesRead;
+        }
+        block_store_read(blockStore, readIndirectData[indirectBlockLocation], tempBlockdata);
+        size_t bytesToReadFromLocation = (size_t)512 - byteAtPositionInFileBlock;
+        //Checking for writing an excess amount.
+        if(bytesToReadFromLocation > nbytes){
+            bytesToReadFromLocation = nbytes;
+        }
+        memcpy(data,tempBlockdata+byteAtPositionInFileBlock ,bytesToReadFromLocation);
+
+        fileBlockNumber++;
+        nbytes -= bytesToReadFromLocation;
+        indirectBlockLocation++;
+        data += bytesToReadFromLocation;
+        totalBytesRead += bytesToReadFromLocation;
+        byteAtPositionInFileBlock = 0;
+    }
+
+    if(nbytes > 0){
+        return totalBytesRead + readDoubleIndirectBlocks(blockStore, fileBlockNumber, 0, inode, data, nbytes);
+    }
+
+    return totalBytesRead;
+
+}
+//Normal Indirect case
+ssize_t handleIndirectBlock(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes, size_t blockStoreBlockId){
+
+    int indirectBlockLocation = (fileBlockNumber - 6) % 256;
+    ssize_t totalBytesWritten = 0;
+    size_t physicalBlock = 0;
+    uint16_t readIndirectData[256];
+    //Have indirect data
+    block_store_read(blockStore, blockStoreBlockId, readIndirectData);
+    while(nbytes > 0 && indirectBlockLocation < 256) {
+
+        if(readIndirectData[indirectBlockLocation] == 0){
+            //Allocating space for the block.
+            physicalBlock = block_store_allocate(blockStore);
+            if(physicalBlock == SIZE_MAX){
+                block_store_write(blockStore, blockStoreBlockId, readIndirectData);
+                return totalBytesWritten;
+            }
+            //Setting it the block that was allocated.
+            readIndirectData[indirectBlockLocation] = physicalBlock;
+        }
+        //Can starting writing to the block.
+        char tempBlockdata[512];
+        block_store_read(blockStore, readIndirectData[indirectBlockLocation], tempBlockdata);
+        size_t bytesToWriteFromLocation = (size_t)512 - byteAtPositionInFileBlock;
+        //Checking for writing an excess amount.
+        if(bytesToWriteFromLocation > nbytes){
+            bytesToWriteFromLocation = nbytes;
+        }
+        memcpy(tempBlockdata+byteAtPositionInFileBlock, data, bytesToWriteFromLocation);
+        block_store_write(blockStore, readIndirectData[indirectBlockLocation], tempBlockdata);
+
+        fileBlockNumber++;
+        nbytes -= bytesToWriteFromLocation;
+        indirectBlockLocation++;
+        data += bytesToWriteFromLocation;
+        totalBytesWritten += bytesToWriteFromLocation;
+        byteAtPositionInFileBlock = 0;
+    }
+
+    block_store_write(blockStore, blockStoreBlockId, readIndirectData);
+
+    if(nbytes > 0){
+        return totalBytesWritten + handleDoubleIndirectBlocks(blockStore, fileBlockNumber, 0, inode, data, nbytes);
+    }
+
+    return totalBytesWritten;
+
+}
+
+//For double Indirect
+ssize_t readDoubleIndirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, char* data, size_t nbytes){
+    uint16_t readDoubleIndirectData[256];
+    if(inode->doubleIndirectBlock == 0){
+        return 0;
+    }
+    block_store_read(blockStore, inode->doubleIndirectBlock, readDoubleIndirectData);
+    int index = (fileBlockNumber - 261) / 256;
+    if(readDoubleIndirectData[index] == 0){
+        return 0;
+    }
+    return readIndirectBlock(blockStore, fileBlockNumber, byteAtPositionInFileBlock, inode, data, nbytes, readDoubleIndirectData[index]);
+
+}
+//For double Indirect
+ssize_t handleDoubleIndirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes){
+
+    size_t physicalBlock = 0;
+    uint16_t readDoubleIndirectData[256];
+
+    if(inode->doubleIndirectBlock == 0){
+
+        physicalBlock = block_store_allocate(blockStore);
+        if(physicalBlock == SIZE_MAX){
+            return 0;
+        }
+        inode->doubleIndirectBlock = physicalBlock;
+        //Clearing out the array.
+        memset(readDoubleIndirectData, 0, 512);
+
+    } else {
+        block_store_read(blockStore, inode->doubleIndirectBlock, readDoubleIndirectData);
+    }
+    //Where in the doubleIndirect block.
+    int index = (fileBlockNumber - 261) / 256;
+    if(readDoubleIndirectData[index] == 0){
+        physicalBlock = block_store_allocate(blockStore);
+        if(physicalBlock == SIZE_MAX){
+            return 0;
+        }
+        readDoubleIndirectData[index] = physicalBlock;
+        block_store_write(blockStore, inode->doubleIndirectBlock, readDoubleIndirectData);
+        return handleIndirectBlock(blockStore, fileBlockNumber, byteAtPositionInFileBlock, inode, data, nbytes, physicalBlock);
+    } else{
+        return handleIndirectBlock(blockStore, fileBlockNumber, byteAtPositionInFileBlock, inode, data, nbytes, readDoubleIndirectData[index]);
+    }
+}
+
 
 ///
 /// Deletes the specified file and closes all open descriptors to the file
@@ -494,6 +809,7 @@ ssize_t fs_write(F17FS_t *fs, int fd, const void *src, size_t nbyte){
 /// \return 0 on success, < 0 on error
 ///
 int fs_remove(F17FS_t *fs, const char *path){
+
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return -1;
     }
@@ -632,4 +948,14 @@ int indexOfNameInDirectoryEntries(directory_t directory, char* fileName){
         }
     }
     return -1;
+}
+
+off_t calculateOffset(int fileSize, off_t seekLocation){
+    if(seekLocation <= 0){
+        return 0;
+    }else if(seekLocation > fileSize){
+        return fileSize;
+    }else{
+        return seekLocation;
+    }
 }

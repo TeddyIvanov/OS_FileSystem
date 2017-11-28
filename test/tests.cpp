@@ -462,106 +462,106 @@ TEST(f_tests, get_dir) {
 //   12. Error, nbyte 0 (not an error...? Bad parameters? Hmm.)
 //   13. Error, bad fds
 
-//TEST(d_tests, write_file_simple) {
-//    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
-//    const char *test_fname = "d_tests_normal.F17FS";
-//    F17FS *fs = fs_format(test_fname);
-//    ASSERT_NE(fs, nullptr);
-//    uint8_t three_a[1024];
-//    memset(three_a, 0x33, 333);
-//    memset(three_a + 333, 0xAA, 691);
-//    // 333 0x33, rest is 0xAA
-//    // I really wish there was a "const but wait like 2 sec I need to write something complex"
-//    // (actually you can kinda do that with memset and pointer voodoo)
-//    uint8_t two_nine[1024];
-//    memset(two_nine, 0x22, 222);
-//    memset(two_nine + 222, 0x99, 802);
-//    // Figure out the pattern yet?
-//    uint8_t large_eight_five_b_seven[1024 * 3];
-//    memset(large_eight_five_b_seven, 0x88, 888);
-//    memset(large_eight_five_b_seven + 888, 0x55, 555);
-//    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
-//    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
-//    ASSERT_EQ(fs_create(fs, fnames[0], FS_REGULAR), 0);
-//    int fd_array[5] = {-1};  // wonderful arbitrary number
-//    fd_array[0] = fs_open(fs, fnames[0]);
-//    ASSERT_GE(fd_array[0], 0);
-//    ASSERT_EQ(fs_create(fs, fnames[1], FS_REGULAR), 0);
-//    fd_array[1] = fs_open(fs, fnames[1]);
-//    ASSERT_GE(fd_array[1], 0);
-//    ASSERT_EQ(fs_create(fs, fnames[2], FS_REGULAR), 0);
-//    fd_array[2] = fs_open(fs, fnames[2]);
-//    ASSERT_GE(fd_array[2], 0);
-//    score += 12;
-//    // Alrighty, time to get some work done.
-//    // This FS object has one block eaten up at the moment for root, so we have...
-//    // 65536 - 41 = 65495 blocks. And we need to eventually use up all of them. Good.
-//    // FS_WRITE 1
-//    ASSERT_EQ(fs_write(fs, fd_array[0], three_a, 334), 334);
-//
-//    // FS_WRITE 2
-//    ASSERT_EQ(fs_write(fs, fd_array[0], large_eight_five_b_seven, 500), 500);
-//
-//    // file should be 333 0x33, 1 0xAA, 888 0x88 , 312 0x55 and dipping into second block
-//    // FS_WRITE 3
-//    ASSERT_EQ(fs_write(fs, fd_array[1], two_nine, 512), 512);
-//
-//    // FS_WRITE 4
-//    ASSERT_EQ(fs_write(fs, fd_array[1], two_nine + 512, 512), 512);
-//
-//    // FS_WRITE 5
-//    ASSERT_EQ(fs_write(fs, fd_array[2], large_eight_five_b_seven + 555 + 888, 1024), 1024);
-//    ASSERT_EQ(fs_write(fs, fd_array[2], three_a, 334), 334);
-//
-//    // file is a block of 0x11, 333 0x33 and one 0xAA
-//    // I'll do the breakage tests now, move the big writes somewhere else
-//    // 2. Normal, attempt to use after closing, assert failure **
-//    // 3. Normal, multiple opens, close does not affect the others **
-//    // FS_WRITE 11
-//    ASSERT_LT(fs_write(NULL, fd_array[2], three_a, 999), 0);
-//
-//    // FS_WRITE 12
-//    ASSERT_LT(fs_write(fs, fd_array[2], NULL, 999), 0);
-//
-//    // Can't validate that it didn't mess up the R/W position :/
-//    // FS_WRITE 13
-//    ASSERT_EQ(fs_write(fs, fd_array[2], three_a, 0), 0);
-//
-//    // FS_WRITE 14
-//    ASSERT_LT(fs_write(fs, 90, three_a, 12), 0);
-//    ASSERT_LT(fs_write(fs, -90, three_a, 12), 0);
-//
-//    // FS_CLOSE 2
-//    ASSERT_EQ(fs_close(fs, fd_array[0]), 0);
-//    ASSERT_LT(fs_write(fs, fd_array[0], three_a, 500), 0);
-//
-//    // FS_CLOSE 3
-//    fd_array[0] = fs_open(fs, fnames[1]);
-//    ASSERT_GE(fd_array[0], 0);
-//    // fd 0 and 1 point to same file
-//    ASSERT_EQ(fs_close(fs, fd_array[0]), 0);
-//    ASSERT_EQ(fs_write(fs, fd_array[1], three_a, 1024), 1024);
-//
-//    // File better have two two_nines and a three_a
-//    // And I'm going to unmount without closing.
-//    fs_unmount(fs);
-//
-//}
-//TEST(d_tests, write_file_fill) {
-//    // Still gotta test write 6,7,8,9
-//    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
-//    const char *test_fname = "d_tests_full.F17FS";
-//    F17FS *fs = fs_format(test_fname);
-//    ASSERT_NE(fs, nullptr);
-//    uint8_t large_eight_five_b_seven[1024 * 3];
-//    memset(large_eight_five_b_seven, 0x88, 888);
-//    memset(large_eight_five_b_seven + 888, 0x55, 555);
-//    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
-//    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
-//    ASSERT_EQ(fs_create(fs, fnames[0], FS_REGULAR), 0);
-//    int fd = fs_open(fs, fnames[0]);
-//    ASSERT_GE(fd, 0);
-//
+TEST(d_tests, write_file_simple) {
+    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
+    const char *test_fname = "d_tests_normal.F17FS";
+    F17FS *fs = fs_format(test_fname);
+    ASSERT_NE(fs, nullptr);
+    uint8_t three_a[1024];
+    memset(three_a, 0x33, 333);
+    memset(three_a + 333, 0xAA, 691);
+    // 333 0x33, rest is 0xAA
+    // I really wish there was a "const but wait like 2 sec I need to write something complex"
+    // (actually you can kinda do that with memset and pointer voodoo)
+    uint8_t two_nine[1024];
+    memset(two_nine, 0x22, 222);
+    memset(two_nine + 222, 0x99, 802);
+    // Figure out the pattern yet?
+    uint8_t large_eight_five_b_seven[1024 * 3];
+    memset(large_eight_five_b_seven, 0x88, 888);
+    memset(large_eight_five_b_seven + 888, 0x55, 555);
+    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
+    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
+    ASSERT_EQ(fs_create(fs, fnames[0], FS_REGULAR), 0);
+    int fd_array[5] = {-1};  // wonderful arbitrary number
+    fd_array[0] = fs_open(fs, fnames[0]);
+    ASSERT_GE(fd_array[0], 0);
+    ASSERT_EQ(fs_create(fs, fnames[1], FS_REGULAR), 0);
+    fd_array[1] = fs_open(fs, fnames[1]);
+    ASSERT_GE(fd_array[1], 0);
+    ASSERT_EQ(fs_create(fs, fnames[2], FS_REGULAR), 0);
+    fd_array[2] = fs_open(fs, fnames[2]);
+    ASSERT_GE(fd_array[2], 0);
+    score += 12;
+    // Alrighty, time to get some work done.
+    // This FS object has one block eaten up at the moment for root, so we have...
+    // 65536 - 41 = 65495 blocks. And we need to eventually use up all of them. Good.
+    // FS_WRITE 1
+    ASSERT_EQ(fs_write(fs, fd_array[0], three_a, 334), 334);
+
+    // FS_WRITE 2
+    ASSERT_EQ(fs_write(fs, fd_array[0], large_eight_five_b_seven, 500), 500);
+
+    // file should be 333 0x33, 1 0xAA, 888 0x88 , 312 0x55 and dipping into second block
+    // FS_WRITE 3
+    ASSERT_EQ(fs_write(fs, fd_array[1], two_nine, 512), 512);
+
+    // FS_WRITE 4
+    ASSERT_EQ(fs_write(fs, fd_array[1], two_nine + 512, 512), 512);
+
+    // FS_WRITE 5
+    ASSERT_EQ(fs_write(fs, fd_array[2], large_eight_five_b_seven + 555 + 888, 1024), 1024);
+    ASSERT_EQ(fs_write(fs, fd_array[2], three_a, 334), 334);
+
+    // file is a block of 0x11, 333 0x33 and one 0xAA
+    // I'll do the breakage tests now, move the big writes somewhere else
+    // 2. Normal, attempt to use after closing, assert failure **
+    // 3. Normal, multiple opens, close does not affect the others **
+    // FS_WRITE 11
+    ASSERT_LT(fs_write(NULL, fd_array[2], three_a, 999), 0);
+
+    // FS_WRITE 12
+    ASSERT_LT(fs_write(fs, fd_array[2], NULL, 999), 0);
+
+    // Can't validate that it didn't mess up the R/W position :/
+    // FS_WRITE 13
+    ASSERT_EQ(fs_write(fs, fd_array[2], three_a, 0), 0);
+
+    // FS_WRITE 14
+    ASSERT_LT(fs_write(fs, 90, three_a, 12), 0);
+    ASSERT_LT(fs_write(fs, -90, three_a, 12), 0);
+
+    // FS_CLOSE 2
+    ASSERT_EQ(fs_close(fs, fd_array[0]), 0);
+    ASSERT_LT(fs_write(fs, fd_array[0], three_a, 500), 0);
+
+    // FS_CLOSE 3
+    fd_array[0] = fs_open(fs, fnames[1]);
+    ASSERT_GE(fd_array[0], 0);
+    // fd 0 and 1 point to same file
+    ASSERT_EQ(fs_close(fs, fd_array[0]), 0);
+    ASSERT_EQ(fs_write(fs, fd_array[1], three_a, 1024), 1024);
+
+    // File better have two two_nines and a three_a
+    // And I'm going to unmount without closing.
+    fs_unmount(fs);
+
+}
+TEST(d_tests, write_file_fill) {
+    // Still gotta test write 6,7,8,9
+    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
+    const char *test_fname = "d_tests_full.F17FS";
+    F17FS *fs = fs_format(test_fname);
+    ASSERT_NE(fs, nullptr);
+    uint8_t large_eight_five_b_seven[1024 * 3];
+    memset(large_eight_five_b_seven, 0x88, 888);
+    memset(large_eight_five_b_seven + 888, 0x55, 555);
+    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
+    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
+    ASSERT_EQ(fs_create(fs, fnames[0], FS_REGULAR), 0);
+    int fd = fs_open(fs, fnames[0]);
+    ASSERT_GE(fd, 0);
+
 //    // the math below is a mess! But I think the calculation is correct.
 //    // Alrighty, time to get some work done.
 //    // This FS object has one block eaten up at the moment for root, so we have...
@@ -577,65 +577,65 @@ TEST(f_tests, get_dir) {
 //    // (inode reported 33398272 which maths out to 65231 blocks, which is 256 blocks lost to addressing all that data)
 //    // FS_WRITE 6
 //    // direct/indirect transition is easy, write 6 blocks then one more
-//    size_t blocks = 0;
-//    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 3), 512 * 3);
-//    blocks += 3;
-//    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 2), 512 * 2);
-//    blocks += 2;
-//    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 2), 512 * 2);
-//    blocks += 3;
-//
-//    // 3 bceause we just ate up an indirect block
-//    // FS_WRITE 7
-//    // Ok, now we need to wriiiiittteeeeeeee......... 255? (yes)
-//    for (; blocks < 262; blocks += 5) {
-//        ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 5), 512 * 5);
-//    }
-//    // Now we should be at 256 filled... write one to break into the double indirect
-//    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512), 512);
-//    blocks += 3;
-//    // +2 because dbl indirect and the indirect
-//    uint8_t *giant_data_hunk = new (std::nothrow) uint8_t[512 * 256]; // an entire indirect block
-//    ASSERT_NE(giant_data_hunk, nullptr);
-//    memset(giant_data_hunk, 0x6E, 512 * 256);
-//    ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 255), 512 * 255);
-//    blocks += 255; // 777
-//
-//    // exactly one indirect filled
-//    for (int i = 0; i < 252; ++i, blocks += 257) {
-//        ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 256), 512 * 256);
-//    }
-//    // Down to the last few blocks now
-//    // Gonna try and write more than is left, because you should cut it off when you get to the end, not just die.
-//    // According to my investigation, there's 200 blocks left
-//    ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 256), 512 * 200);
-//    delete[] giant_data_hunk;
-//    // While I'm at it...
-//    // FS_CREATE 21
-//    ASSERT_LT(fs_create(fs, fnames[1], FS_DIRECTORY), 0);
-//    // And might as well check this
-//    ASSERT_EQ(fs_create(fs, fnames[1], FS_REGULAR), 0);
-//    // I now realize I'm just testing my code now, since 99.99999999%
-//    // of you are using my P3M1 code, which just makes more work for me.
-//    // Good.
-//    // There's a handful of edge cases that these tests won't catch.
-//    // But I tried, so nobody can judge me.
-//    fs_unmount(fs);
-//    score += 15;
-//}
+    size_t blocks = 0;
+    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 3), 512 * 3);
+    blocks += 3;
+    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 2), 512 * 2);
+    blocks += 2;
+    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 2), 512 * 2);
+    blocks += 3;
+
+    // 3 bceause we just ate up an indirect block
+    // FS_WRITE 7
+    // Ok, now we need to wriiiiittteeeeeeee......... 255? (yes)
+    for (; blocks < 262; blocks += 5) {
+        ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512 * 5), 512 * 5);
+    }
+    // Now we should be at 256 filled... write one to break into the double indirect
+    ASSERT_EQ(fs_write(fs, fd, large_eight_five_b_seven, 512), 512);
+    blocks += 3;
+    // +2 because dbl indirect and the indirect
+    uint8_t *giant_data_hunk = new (std::nothrow) uint8_t[512 * 256]; // an entire indirect block
+    ASSERT_NE(giant_data_hunk, nullptr);
+    memset(giant_data_hunk, 0x6E, 512 * 256);
+    ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 255), 512 * 255);
+    blocks += 255; // 777
+
+    // exactly one indirect filled
+    for (int i = 0; i < 252; ++i, blocks += 257) {
+        ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 256), 512 * 256);
+    }
+    // Down to the last few blocks now
+    // Gonna try and write more than is left, because you should cut it off when you get to the end, not just die.
+    // According to my investigation, there's 200 blocks left
+    ASSERT_EQ(fs_write(fs, fd, giant_data_hunk, 512 * 256), 512 * 200);
+    delete[] giant_data_hunk;
+    // While I'm at it...
+    // FS_CREATE 21
+    ASSERT_LT(fs_create(fs, fnames[1], FS_DIRECTORY), 0);
+    // And might as well check this
+    ASSERT_EQ(fs_create(fs, fnames[1], FS_REGULAR), 0);
+    // I now realize I'm just testing my code now, since 99.99999999%
+    // of you are using my P3M1 code, which just makes more work for me.
+    // Good.
+    // There's a handful of edge cases that these tests won't catch.
+    // But I tried, so nobody can judge me.
+    fs_unmount(fs);
+    score += 15;
+}
 ///* 0-33 34-65519 65520-65535
-//   int fs_remove(F17FS *fs, const char *path);
-//   1. Normal, file at root
-//   2. Normal, file in subdirectory
-//   3. Normal, directory in subdir, empty directory
-//   4. Normal, file in double indirects somewhere (use full fs file from write_file?)
-//   5. Error, directory with contents
-//   6. Error, file does not exist
-//   7. Error, Root (also empty)
-//   8. Error, NULL fs
-//   9. Error, NULL fname
-//   10. Error, Empty fname (same as file does not exist?)
-//   */
+////   int fs_remove(F17FS *fs, const char *path);
+////   1. Normal, file at root
+////   2. Normal, file in subdirectory
+////   3. Normal, directory in subdir, empty directory
+////   4. Normal, file in double indirects somewhere (use full fs file from write_file?)
+////   5. Error, directory with contents
+////   6. Error, file does not exist
+////   7. Error, Root (also empty)
+////   8. Error, NULL fs
+////   9. Error, NULL fname
+////   10. Error, Empty fname (same as file does not exist?)
+////   */
 //TEST(e_tests, remove_file) {
 //    vector<const char *> b_fnames{
 //            "/file", "/folder", "/folder/with_file", "/folder/with_folder", "/DOESNOTEXIST", "/file/BAD_REQUEST",
@@ -685,145 +685,145 @@ TEST(f_tests, get_dir) {
 //    fs_unmount(fs);
 //    score += 15;
 //}
-//
-///*
-//   off_t fs_seek(F17FS *fs, int fd, off_t offset, seek_t whence)
-//   1. Normal, wherever, really - make sure it doesn't change a second fd to the file
-//   2. Normal, seek past beginning - resulting location unspecified by our api, can't really test?
-//   3. Normal, seek past end - resulting location unspecified by our api, can't really test?
-//   4. Error, FS null
-//   5. Error, fd invalid
-//   6. Error, whence not a valid value
-//   */
-//TEST(g_tests, seek) {
-//    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
-//    const char *test_fname = "g_tests.F17FS";
-//    ASSERT_EQ(system("cp d_tests_full.F17FS g_tests.F17FS"), 0);
-//    F17FS *fs = fs_mount(test_fname);
-//    ASSERT_NE(fs, nullptr);
-//    int fd_one = fs_open(fs, fnames[0]);
-//    ASSERT_GE(fd_one, 0);
-//    int fd_two = fs_open(fs, fnames[0]);
-//    ASSERT_GE(fd_two, 0);
-//    // While we're at it, make sure they default to 0
-//    int position = fs_seek(fs, fd_one, 0, FS_SEEK_CUR);
-//    ASSERT_EQ(position, 0);
-//    // FS_SEEK 1
-//    position = fs_seek(fs, fd_one, 1023, FS_SEEK_CUR);
-//    ASSERT_EQ(position, 1023);
-//    position = fs_seek(fs, fd_one, 12, FS_SEEK_SET);
-//    ASSERT_EQ(position, 12);
-//    // FS_SEEK 2
-//    position = fs_seek(fs, fd_one, -50, FS_SEEK_CUR);
-//    ASSERT_EQ(position, 0);
-//    // FS_SEEK 3
-//    position = fs_seek(fs, fd_one, 98675309, FS_SEEK_CUR);
-//    ASSERT_EQ(position, 33397760);
-//    // while we're at it, make sure seek didn't break the other one
-//    position = fs_seek(fs, fd_two, 0, FS_SEEK_CUR);
-//    ASSERT_EQ(position, 0);
-//    // FS_SEEK 4
-//    position = fs_seek(NULL, fd_one, 12, FS_SEEK_SET);
-//    ASSERT_LT(position, 0);
-//    // FS_SEEK 5
-//    position = fs_seek(fs, 98, 12, FS_SEEK_SET);
-//    ASSERT_LT(position, 0);
-//    // FS_SEEK 6
-//    position = fs_seek(fs, fd_one, 12, (seek_t) 8458);
-//    ASSERT_LT(position, 0);
-//    fs_unmount(fs);
-//    score += 13;
-//}
-///*
-//   ssize_t fs_read(F17FS *fs, int fd, void *dst, size_t nbyte);
-//   1. Normal, begin to < 1 block
-//   2. Normal, < 1 block to part of next
-//   3. Normal, whole block
-//   4. Normal, multiple blocks
-//   5. Normal, direct->indirect transition
-//   6. Normal, indirect->dbl_indirect transition
-//   7. Normal, double indirect indirect transition
-//   8. Error, NULL fs
-//   9. Error, NULL data
-//   10. Normal, nbyte 0
-//   11. Normal, at EOF
-//   */
-//TEST(h_tests, read) {
-//    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
-//    const char *test_fname = "g_tests.F17FS";
-//    ASSERT_EQ(system("cp d_tests_full.F17FS g_tests.F17FS"), 0);
-//    uint8_t six_e[3072];
-//    memset(six_e, 0x6E, 3072);
-//    uint8_t large_eight_five_b_seven[1024 * 3];
-//    memset(large_eight_five_b_seven, 0x88, 888);
-//    memset(large_eight_five_b_seven + 888, 0x55, 555);
-//    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
-//    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
-//    F17FS *fs = fs_mount(test_fname);
-//    ASSERT_NE(fs, nullptr);
-//    int fd = fs_open(fs, fnames[0]);
-//    ASSERT_GE(fd, 0);
-//    uint8_t write_space[4096] = {0};
-//    // FS_READ 1
-//    ssize_t nbyte = fs_read(fs, fd, &write_space, 444);
-//    ASSERT_EQ(nbyte, 444);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 444), 0);
-//    // FS_READ 2
-//    nbyte = fs_read(fs, fd, &write_space, 500);
-//    ASSERT_EQ(nbyte, 500);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + 444, 500), 0);
-//    // FS_READ 3
-//    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_SET), 0);
-//    nbyte = fs_read(fs, fd, &write_space, 512);
-//    ASSERT_EQ(nbyte, 512);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 512), 0);
-//    // FS_READ 4
-//    nbyte = fs_read(fs, fd, &write_space, 1024);
-//    ASSERT_EQ(nbyte, 1024);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + 512, 1024), 0);
-//    // FS_READ 5
-//    ASSERT_EQ(fs_seek(fs, fd, 2560, FS_SEEK_SET), 2560);
-//    nbyte = fs_read(fs, fd, &write_space, 1024);
-//    ASSERT_EQ(nbyte, 1024);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 1024), 0);
-//    // FS_READ 6
-//    ASSERT_EQ(fs_seek(fs, fd, (255 + 6) * 512, FS_SEEK_SET), (255 + 6) * 512);
-//    nbyte = fs_read(fs, fd, &write_space, 1024);
-//    ASSERT_EQ(nbyte, 1024);
-//    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + (512 * 4), 512), 0);
-//    ASSERT_EQ(memcmp(write_space + 512, large_eight_five_b_seven, 512), 0);
-//    score += 15;
-//    // FS_READ 7
-//    ASSERT_EQ(fs_seek(fs, fd, 517 * 512, FS_SEEK_SET), 517 * 512);
-//    nbyte = fs_read(fs, fd, &write_space, 1024);
-//    ASSERT_EQ(nbyte, 1024);
-//    ASSERT_EQ(memcmp(write_space, six_e, 1024), 0);
-//    // FS_READ 8
-//    nbyte = fs_read(NULL, fd, write_space, 1024);
-//    ASSERT_LT(nbyte, 0);
-//    // did you break the descriptor position?
-//    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
-//    // FS_READ 9
-//    nbyte = fs_read(fs, fd, NULL, 1024);
-//    ASSERT_LT(nbyte, 0);
-//    // did you break the descriptor position?
-//    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
-//    // FS_READ 10
-//    nbyte = fs_read(fs, fd, write_space, 0);
-//    ASSERT_EQ(nbyte, 0);
-//    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
-//    // FS_READ 11
-//    ASSERT_EQ(fs_seek(fs, fd, 98675309, FS_SEEK_CUR), 33397760);
-//    ASSERT_EQ(fs_seek(fs, fd, -500, FS_SEEK_END), 33397260);
-//    nbyte = fs_read(fs, fd, write_space, 1024);
-//    ASSERT_EQ(nbyte, 500);
-//    ASSERT_EQ(memcmp(write_space, six_e, 500), 0);
-//    // did you mess up the position?
-//    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 33397760);
-//    fs_unmount(fs);
-//    score += 20;
-//}
-//
+////
+/////*
+////   off_t fs_seek(F17FS *fs, int fd, off_t offset, seek_t whence)
+////   1. Normal, wherever, really - make sure it doesn't change a second fd to the file
+////   2. Normal, seek past beginning - resulting location unspecified by our api, can't really test?
+////   3. Normal, seek past end - resulting location unspecified by our api, can't really test?
+////   4. Error, FS null
+////   5. Error, fd invalid
+////   6. Error, whence not a valid value
+////   */
+TEST(g_tests, seek) {
+    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
+    const char *test_fname = "g_tests.F17FS";
+    ASSERT_EQ(system("cp d_tests_full.F17FS g_tests.F17FS"), 0);
+    F17FS *fs = fs_mount(test_fname);
+    ASSERT_NE(fs, nullptr);
+    int fd_one = fs_open(fs, fnames[0]);
+    ASSERT_GE(fd_one, 0);
+    int fd_two = fs_open(fs, fnames[0]);
+    ASSERT_GE(fd_two, 0);
+    // While we're at it, make sure they default to 0
+    int position = fs_seek(fs, fd_one, 0, FS_SEEK_CUR);
+    ASSERT_EQ(position, 0);
+    // FS_SEEK 1
+    position = fs_seek(fs, fd_one, 1023, FS_SEEK_CUR);
+    ASSERT_EQ(position, 1023);
+    position = fs_seek(fs, fd_one, 12, FS_SEEK_SET);
+    ASSERT_EQ(position, 12);
+    // FS_SEEK 2
+    position = fs_seek(fs, fd_one, -50, FS_SEEK_CUR);
+    ASSERT_EQ(position, 0);
+    // FS_SEEK 3
+    position = fs_seek(fs, fd_one, 98675309, FS_SEEK_CUR);
+    ASSERT_EQ(position, 33397760);
+    // while we're at it, make sure seek didn't break the other one
+    position = fs_seek(fs, fd_two, 0, FS_SEEK_CUR);
+    ASSERT_EQ(position, 0);
+    // FS_SEEK 4
+    position = fs_seek(NULL, fd_one, 12, FS_SEEK_SET);
+    ASSERT_LT(position, 0);
+    // FS_SEEK 5
+    position = fs_seek(fs, 98, 12, FS_SEEK_SET);
+    ASSERT_LT(position, 0);
+    // FS_SEEK 6
+    position = fs_seek(fs, fd_one, 12, (seek_t) 8458);
+    ASSERT_LT(position, 0);
+    fs_unmount(fs);
+    score += 13;
+}
+
+////   ssize_t fs_read(F17FS *fs, int fd, void *dst, size_t nbyte);
+////   1. Normal, begin to < 1 block
+////   2. Normal, < 1 block to part of next
+////   3. Normal, whole block
+////   4. Normal, multiple blocks
+////   5. Normal, direct->indirect transition
+////   6. Normal, indirect->dbl_indirect transition
+////   7. Normal, double indirect indirect transition
+////   8. Error, NULL fs
+////   9. Error, NULL data
+////   10. Normal, nbyte 0
+////   11. Normal, at EOF
+////   */
+TEST(h_tests, read) {
+    vector<const char *> fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
+    const char *test_fname = "g_tests.F17FS";
+    ASSERT_EQ(system("cp d_tests_full.F17FS g_tests.F17FS"), 0);
+    uint8_t six_e[3072];
+    memset(six_e, 0x6E, 3072);
+    uint8_t large_eight_five_b_seven[1024 * 3];
+    memset(large_eight_five_b_seven, 0x88, 888);
+    memset(large_eight_five_b_seven + 888, 0x55, 555);
+    memset(large_eight_five_b_seven + 555 + 888, 0xBB, 1111);
+    memset(large_eight_five_b_seven + 555 + 1111 + 888, 0x77, 518);
+    F17FS *fs = fs_mount(test_fname);
+    ASSERT_NE(fs, nullptr);
+    int fd = fs_open(fs, fnames[0]);
+    ASSERT_GE(fd, 0);
+    uint8_t write_space[4096] = {0};
+    // FS_READ 1
+    ssize_t nbyte = fs_read(fs, fd, &write_space, 444);
+    ASSERT_EQ(nbyte, 444);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 444), 0);
+    // FS_READ 2
+    nbyte = fs_read(fs, fd, &write_space, 500);
+    ASSERT_EQ(nbyte, 500);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + 444, 500), 0);
+    // FS_READ 3
+    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_SET), 0);
+    nbyte = fs_read(fs, fd, &write_space, 512);
+    ASSERT_EQ(nbyte, 512);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 512), 0);
+    // FS_READ 4
+    nbyte = fs_read(fs, fd, &write_space, 1024);
+    ASSERT_EQ(nbyte, 1024);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + 512, 1024), 0);
+    // FS_READ 5
+    ASSERT_EQ(fs_seek(fs, fd, 2560, FS_SEEK_SET), 2560);
+    nbyte = fs_read(fs, fd, &write_space, 1024);
+    ASSERT_EQ(nbyte, 1024);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven, 1024), 0);
+    // FS_READ 6
+    ASSERT_EQ(fs_seek(fs, fd, (255 + 6) * 512, FS_SEEK_SET), (255 + 6) * 512);
+    nbyte = fs_read(fs, fd, &write_space, 1024);
+    ASSERT_EQ(nbyte, 1024);
+    ASSERT_EQ(memcmp(write_space, large_eight_five_b_seven + (512 * 4), 512), 0);
+    ASSERT_EQ(memcmp(write_space + 512, large_eight_five_b_seven, 512), 0);
+    score += 15;
+    // FS_READ 7
+    ASSERT_EQ(fs_seek(fs, fd, 517 * 512, FS_SEEK_SET), 517 * 512);
+    nbyte = fs_read(fs, fd, &write_space, 1024);
+    ASSERT_EQ(nbyte, 1024);
+    ASSERT_EQ(memcmp(write_space, six_e, 1024), 0);
+    // FS_READ 8
+    nbyte = fs_read(NULL, fd, write_space, 1024);
+    ASSERT_LT(nbyte, 0);
+    // did you break the descriptor position?
+    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
+    // FS_READ 9
+    nbyte = fs_read(fs, fd, NULL, 1024);
+    ASSERT_LT(nbyte, 0);
+    // did you break the descriptor position?
+    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
+    // FS_READ 10
+    nbyte = fs_read(fs, fd, write_space, 0);
+    ASSERT_EQ(nbyte, 0);
+    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 519 * 512);
+    // FS_READ 11
+    ASSERT_EQ(fs_seek(fs, fd, 98675309, FS_SEEK_CUR), 33397760);
+    ASSERT_EQ(fs_seek(fs, fd, -500, FS_SEEK_END), 33397260);
+    nbyte = fs_read(fs, fd, write_space, 1024);
+    ASSERT_EQ(nbyte, 500);
+    ASSERT_EQ(memcmp(write_space, six_e, 500), 0);
+    // did you mess up the position?
+    ASSERT_EQ(fs_seek(fs, fd, 0, FS_SEEK_CUR), 33397760);
+    fs_unmount(fs);
+    score += 20;
+}
+
 //#ifdef GRAD_TESTS
 ///*
 //   int fs_move(F17FS *fs, const char *src, const char *dst);

@@ -2,7 +2,7 @@
 #define _F17FS_H__
 
 #include <sys/types.h>
-
+#include <block_store.h>
 #include <dyn_array.h>
 
 typedef struct F17FS F17FS_t;
@@ -150,5 +150,11 @@ void getInodeFromDirectory(F17FS_t* fs,directory_t* parentDirectory, int index, 
 void getInodeFromTable(F17FS_t* fs, int index, inode_t* inode);
 void writeInodeIntoTable(F17FS_t* fs, size_t index, inode_t* inode);
 int indexOfNameInDirectoryEntries(directory_t directory, char* fileName);
-
+off_t calculateOffset(int fileSize, off_t seekLocation);
+ssize_t handleDirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes);
+ssize_t handleIndirectBlock(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes, size_t blockStoreBlockId);
+ssize_t handleDoubleIndirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, const char* data, size_t nbytes);
+ssize_t readDirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode,  char* data, size_t nbytes);
+ssize_t readIndirectBlock(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode,  char* data, size_t nbytes, size_t blockStoreBlockId);
+ssize_t readDoubleIndirectBlocks(block_store_t* blockStore, int fileBlockNumber, int byteAtPositionInFileBlock, inode_t* inode, char* data, size_t nbytes);
 #endif
