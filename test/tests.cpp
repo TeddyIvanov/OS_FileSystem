@@ -636,55 +636,55 @@ TEST(d_tests, write_file_fill) {
 ////   9. Error, NULL fname
 ////   10. Error, Empty fname (same as file does not exist?)
 ////   */
-//TEST(e_tests, remove_file) {
-//    vector<const char *> b_fnames{
-//            "/file", "/folder", "/folder/with_file", "/folder/with_folder", "/DOESNOTEXIST", "/file/BAD_REQUEST",
-//            "/DOESNOTEXIST/with_file", "/folder/with_file/bad_req", "folder/missing_slash", "/folder/new_folder/",
-//            "/folder/withwaytoolongfilenamethattakesupmorespacethanitshould and yet was not enough so I had to add "
-//                    "more/bad_req",
-//            "/folder/withfilethatiswayyyyytoolongwhydoyoumakefilesthataretoobigEXACT!", "/", "/mystery_file"};
-//    vector<const char *> a_fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
-//    const char *(test_fname[2]) = {"e_tests_a.F17FS", "e_tests_b.F17FS"};
-//    ASSERT_EQ(system("cp d_tests_full.F17FS e_tests_a.F17FS"), 0);
-//    ASSERT_EQ(system("cp c_tests.F17FS e_tests_b.F17FS"), 0);
-//    F17FS *fs = fs_mount(test_fname[1]);
-//    ASSERT_NE(fs, nullptr);
-//    // FS_REMOVE 10
-//    ASSERT_LT(fs_remove(fs, ""), 0);
-//
-//    // FS_REMOVE 2
-//    ASSERT_EQ(fs_remove(fs, b_fnames[2]), 0);
-//
-//    // FS_REMOVE 5
-//    ASSERT_LT(fs_remove(fs, b_fnames[1]), 0);
-//    ASSERT_EQ(fs_remove(fs, b_fnames[3]), 0);
-//
-//    // FS_REMOVE 3
-//    ASSERT_EQ(fs_remove(fs, b_fnames[1]), 0);
-//    fs_unmount(fs);
-//
-//    fs = fs_mount(test_fname[0]);
-//    ASSERT_NE(fs, nullptr);
-//    // FS_REMOVE 1
-//    ASSERT_EQ(fs_remove(fs, a_fnames[1]), 0);
-//
-//    // FS_REMOVE 4
-//    ASSERT_EQ(fs_remove(fs, a_fnames[0]), 0);
-//
-//    // FS_REMOVE 6
-//    ASSERT_LT(fs_remove(fs, a_fnames[3]), 0);
-//
-//    // FS_REMOVE 7
-//    ASSERT_LT(fs_remove(fs, "/"), 0);
-//
-//    // FS_REMOVE 8
-//    ASSERT_LT(fs_remove(NULL, a_fnames[1]), 0);
-//
-//    // FS_REMOVE 9
-//    ASSERT_LT(fs_remove(fs, NULL), 0);
-//    fs_unmount(fs);
-//    score += 15;
-//}
+TEST(e_tests, remove_file) {
+    vector<const char *> b_fnames{
+            "/file", "/folder", "/folder/with_file", "/folder/with_folder", "/DOESNOTEXIST", "/file/BAD_REQUEST",
+            "/DOESNOTEXIST/with_file", "/folder/with_file/bad_req", "folder/missing_slash", "/folder/new_folder/",
+            "/folder/withwaytoolongfilenamethattakesupmorespacethanitshould and yet was not enough so I had to add "
+                    "more/bad_req",
+            "/folder/withfilethatiswayyyyytoolongwhydoyoumakefilesthataretoobigEXACT!", "/", "/mystery_file"};
+    vector<const char *> a_fnames{"/file_a", "/file_b", "/file_c", "/file_d"};
+    const char *(test_fname[2]) = {"e_tests_a.F17FS", "e_tests_b.F17FS"};
+    ASSERT_EQ(system("cp d_tests_full.F17FS e_tests_a.F17FS"), 0);
+    ASSERT_EQ(system("cp c_tests.F17FS e_tests_b.F17FS"), 0);
+    F17FS *fs = fs_mount(test_fname[1]);
+    ASSERT_NE(fs, nullptr);
+    // FS_REMOVE 10
+    ASSERT_LT(fs_remove(fs, ""), 0);
+
+    // FS_REMOVE 2
+    ASSERT_EQ(fs_remove(fs, b_fnames[2]), 0);
+
+    // FS_REMOVE 5
+    ASSERT_LT(fs_remove(fs, b_fnames[1]), 0);
+    ASSERT_EQ(fs_remove(fs, b_fnames[3]), 0);
+
+    // FS_REMOVE 3
+    ASSERT_EQ(fs_remove(fs, b_fnames[1]), 0);
+    fs_unmount(fs);
+
+    fs = fs_mount(test_fname[0]);
+    ASSERT_NE(fs, nullptr);
+    // FS_REMOVE 1
+    ASSERT_EQ(fs_remove(fs, a_fnames[1]), 0);
+
+    // FS_REMOVE 4
+    ASSERT_EQ(fs_remove(fs, a_fnames[0]), 0);
+
+    // FS_REMOVE 6
+    ASSERT_LT(fs_remove(fs, a_fnames[3]), 0);
+
+    // FS_REMOVE 7
+    ASSERT_LT(fs_remove(fs, "/"), 0);
+
+    // FS_REMOVE 8
+    ASSERT_LT(fs_remove(NULL, a_fnames[1]), 0);
+
+    // FS_REMOVE 9
+    ASSERT_LT(fs_remove(fs, NULL), 0);
+    fs_unmount(fs);
+    score += 15;
+}
 ////
 /////*
 ////   off_t fs_seek(F17FS *fs, int fd, off_t offset, seek_t whence)

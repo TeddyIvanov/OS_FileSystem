@@ -813,15 +813,137 @@ int fs_remove(F17FS_t *fs, const char *path){
     if(fs == NULL || path == NULL || strcmp(path, "") == 0){
         return -1;
     }
-    //Traverse down to see if the file exists,
-    //If its a directory and there are no file, then remvoe directory.
-    //Get the inodeNumber that corresponds to the specific file.
-    //Check if any fileDescriptors exist with correspodining file.
-    //Check all file descriptors with that inodeNumber.
-    //Set them back.
-    //Clear out the correspoinding datablock.
-    //Update the bitmap with file descriptors.
-    //Store back into the blockStore.
+
+    inode_t* inodeForParent = calloc(1, sizeof(inode_t));
+    directory_t* parentDirectory = calloc(1, sizeof(directory_t));
+    file_record_t* file = calloc(1, sizeof(file_record_t));
+
+    int succesfullyTraversed = traverseFilePath(path, fs, parentDirectory, inodeForParent, file);
+    if(succesfullyTraversed < 0){
+        free(file);
+        free(parentDirectory);
+        free(inodeForParent);
+        return -1;
+    }
+
+    int fileLocation = indexOfNameInDirectoryEntries(*parentDirectory, file->name);
+    if(fileLocation < 0){
+        free(inodeForParent);
+        free(parentDirectory);
+        free(file);
+        return -1;
+    }
+    //Check to see if its directory.
+    if(parentDirectory->entries[fileLocation].type == FS_DIRECTORY){
+        inode_t* temp = calloc(1, sizeof(inode_t));
+        directory_t* checkingDirectory = calloc(1, sizeof(directory_t));
+        getInodeFromTable(fs, parentDirectory->entries[fileLocation].inodeNumber, temp);
+        block_store_read(fs->blockStore, temp->directBlocks[0], checkingDirectory);
+        int i = 0;
+        for(i = 0; i<7; i++){
+            if(checkingDirectory->entries[i].inodeNumber != '\0'){
+                free(inodeForParent);
+                free(parentDirectory);
+                free(file);
+                free(temp);
+                free(checkingDirectory);
+                return -1;
+            }
+        }
+
+        uint8_t copyOfInodeToUpdate = parentDirectory->entries[fileLocation].inodeNumber;
+        //Clears out the directory.
+        memset(checkingDirectory,0, sizeof(directory_t));
+        block_store_write(fs->blockStore, temp->directBlocks[0], checkingDirectory);
+        block_store_release(fs->blockStore, temp->directBlocks[0]);
+        free(checkingDirectory);
+        //Clears out the inode
+        memset(temp, 0, sizeof(inode_t));
+        writeInodeIntoTable(fs,copyOfInodeToUpdate, temp);
+        free(temp);
+
+        //Reseting the parent directory.
+        parentDirectory->entries[fileLocation].inodeNumber = '\0';
+        memset(parentDirectory->entries[fileLocation].name, '\0', 64);
+        block_store_write(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+
+        superRoot_t* root = calloc(1, sizeof(superRoot_t));
+        block_store_read(fs->blockStore,0,root);
+        root->bitmap = bitmap_overlay(256, root->freeInodeMap);
+        bitmap_reset(root->bitmap, copyOfInodeToUpdate);
+        bitmap_destroy(root->bitmap);
+        block_store_write(fs->blockStore,0, root);
+        free(root);
+    } else {
+        inode_t* temp = calloc(1, sizeof(inode_t));
+        getInodeFromTable(fs, parentDirectory->entries[fileLocation].inodeNumber, temp);
+
+        int i = 0;
+        //Dealing with direct blocks.
+        for(i = 0; i<7; i++){
+            if(temp->directBlocks[i] != 0){
+                block_store_release(fs->blockStore, temp->directBlocks[i]);
+            }
+        }
+        //Deals with indirect block.
+        if(temp->indirectBlock != 0){
+            uint16_t indirectData[256];
+            block_store_read(fs->blockStore, temp->indirectBlock, indirectData);
+            for(i = 0; i<256; i++){
+                if(indirectData[i] != 0){
+                    block_store_release(fs->blockStore, indirectData[i]);
+                }
+            }
+            block_store_release(fs->blockStore, temp->indirectBlock);
+        }
+
+        //Deals with double Indirect block.
+        if(temp->doubleIndirectBlock != 0){
+
+            uint16_t doubleIndirectData[256];
+            block_store_read(fs->blockStore, temp->doubleIndirectBlock, doubleIndirectData);
+
+            for(i = 0; i<256; i++){
+
+                if(doubleIndirectData[i] != 0){
+
+                    uint16_t indirectData[256];
+                    block_store_read(fs->blockStore, doubleIndirectData[i], indirectData);
+                    int j = 0;
+                    for(j = 0; i<256; i++){
+
+                        if(indirectData[j] != 0){
+                            block_store_release(fs->blockStore, indirectData[j]);
+                        }
+                    }
+                    block_store_release(fs->blockStore, doubleIndirectData[i]);
+                }
+            }
+            block_store_release(fs->blockStore, temp->doubleIndirectBlock);
+        }
+        uint8_t copyOfInodeToUpdate = parentDirectory->entries[fileLocation].inodeNumber;
+
+        memset(temp, 0, sizeof(inode_t));
+        writeInodeIntoTable(fs,copyOfInodeToUpdate, temp);
+        free(temp);
+
+        //Reseting the parent directory.
+        parentDirectory->entries[fileLocation].inodeNumber = '\0';
+        memset(parentDirectory->entries[fileLocation].name, '\0', 64);
+        block_store_write(fs->blockStore, inodeForParent->directBlocks[0], parentDirectory);
+
+        superRoot_t* root = calloc(1, sizeof(superRoot_t));
+        block_store_read(fs->blockStore,0,root);
+        root->bitmap = bitmap_overlay(256, root->freeInodeMap);
+        bitmap_reset(root->bitmap, copyOfInodeToUpdate);
+        bitmap_destroy(root->bitmap);
+        block_store_write(fs->blockStore,0, root);
+        free(root);
+    }
+
+    free(inodeForParent);
+    free(parentDirectory);
+    free(file);
 
     return 0;
 }
